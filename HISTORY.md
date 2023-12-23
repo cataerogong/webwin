@@ -1,3 +1,7 @@
+## v0.1.2
+
+* [+] show app info in help page
+
 ## v0.1.1
 
 * [!] bugfix: create WebWin object with error arg in WebWinApp

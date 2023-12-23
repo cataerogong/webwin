@@ -27,7 +27,7 @@ import chardet
 from webui import webui
 
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 VERSION = __version__.split(".")
 
 
@@ -397,23 +397,24 @@ class WebWinApp:
         def __init__(self, *args, **kwargs):
             self._wwa_args = dict()
             self._wwa_built = False
+            self._wwa_app_info = ('', '', '')
             super().__init__(*args, **kwargs)
 
-        def _webwin_show_msg(self, title: str, msg: str):
+        def _webwin_show_msg(self, msg: str = ''):
             webui.window().show(inject_webui_js(f'''<html>
-                <head><meta charset="UTF-8" /><title>{title}</title></head>
-                <body style="background:#fdf3df;">{msg}
+                <head><meta charset="UTF-8" /><title>{self._wwa_app_info[0]} v{self._wwa_app_info[1]}</title></head>
+                <body style="background:#fdf3df;">{msg or '<h2>{0}</h2><p>{2}</p>'.format(*self._wwa_app_info)}
                 <hr><pre style="font-size:1rem;color:gray;">{self.format_help()}</pre>
                 </body>
                 </html>'''))
             webui.wait()
 
         def print_help(self, file=None):
-            self._webwin_show_msg(self.prog, '')
+            self._webwin_show_msg()
 
         def exit(self, status=0, message=None):
             if message:
-                self._webwin_show_msg(self.prog, message)
+                self._webwin_show_msg(message)
             sys.exit(status)
 
         def error(self, message):
@@ -499,7 +500,8 @@ class WebWinApp:
         self._enable_cmdline_args = enable_cmdline_args
         self._mainwin = WebWin()
         self.args = WebWinApp.Args()
-        self.argparser = WebWinApp.ArgParser(description=self.APP_DESC, allow_abbrev=False)
+        self.argparser = WebWinApp.ArgParser(allow_abbrev=False)
+        self.argparser._wwa_app_info = (self.APP_NAME, self.APP_VER, self.APP_DESC)
 
     @property
     def mainwin(self) -> WebWin:
