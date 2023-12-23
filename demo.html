@@ -1,0 +1,28 @@
+<html>
+  <head><title>WebWin Demo</title><style>name {color: green;}</style></head>
+  <body>
+    use python function:<br />
+    A: <input type="text" id="inputA"> B: <input type="text" id="inputB">
+    <button onclick="swap()">Swap</button>
+    <hr />
+    use python object:<br />
+    name-1: <input type="text" id="name_1">
+    name-2: <input type="text" id="name_2">
+    <button onclick="hello()">Hello</button><br />
+    Reply: <div id="reply" style="border:1px solid;padding:10px;"></div>
+  </body>
+  <script>
+    async function swap() {
+      let elmA = document.getElementById("inputA");
+      let elmB = document.getElementById("inputB");
+      let ret_from_py = await webwin.swap(elmA.value, elmB.value);
+      elmA.value = ret_from_py[0];
+      elmB.value = ret_from_py[1];
+    }
+    async function hello(){
+      await webwin.world.set_name_1(document.getElementById("name_1").value);
+      await webwin.world.set_name_2(document.getElementById("name_2").value);
+      document.getElementById("reply").innerHTML = await webwin.world.hello();
+    }
+  </script>
+</html>
