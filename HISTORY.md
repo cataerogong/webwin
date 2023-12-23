@@ -1,3 +1,9 @@
+## v0.1.1
+
+* [!] bugfix: create WebWin object with error arg in WebWinApp
+
+* [!] bugfix: not strip the quote char in args-file
+
 ## v0.1.0
 
 * window class `WebWin`:

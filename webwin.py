@@ -27,7 +27,7 @@ import chardet
 from webui import webui
 
 
-__version__ = "0.1.0.wip"
+__version__ = "0.1.1"
 VERSION = __version__.split(".")
 
 
@@ -497,7 +497,7 @@ class WebWinApp:
         self._log2file = True
         self._enable_args_file = enable_args_file
         self._enable_cmdline_args = enable_cmdline_args
-        self._mainwin = WebWin(self)
+        self._mainwin = WebWin()
         self.args = WebWinApp.Args()
         self.argparser = WebWinApp.ArgParser(description=self.APP_DESC, allow_abbrev=False)
 
@@ -505,7 +505,7 @@ class WebWinApp:
     def mainwin(self) -> WebWin:
         """ WebWin 窗口对象 """
         if not self._mainwin:
-            self._mainwin = WebWin(self)
+            self._mainwin = WebWin()
         return self._mainwin
 
     def _build_base_paths(self):
@@ -559,7 +559,7 @@ class WebWinApp:
         if self._enable_args_file and os.path.exists(self.ARGS_FILE):
             with open_any_enc(self.ARGS_FILE) as f:
                 s = f.read()
-            args = shlex.split(s, comments=True, posix=(os.name == 'posix'))
+            args = [s.strip('"') for s in shlex.split(s, comments=True, posix=(os.name == 'posix'))]
             self.log(f'args file: {args}')
         if self._enable_cmdline_args:
             self.log(f'args cmdline: {sys.argv[1:]}')
