@@ -47,6 +47,7 @@ class DemoApp(WebWinApp):
         print('webroot', self.mainwin.webroot)
 
     def bind_all(self):
+        super().bind_all()
         self.mainwin.bind_func(swap)
         self.mainwin.bind_object(World(self.args.name))
 

@@ -15,19 +15,21 @@ License: MIT (see LICENSE for details)
 
 import argparse
 from datetime import datetime
+import fnmatch
 import inspect
 import json
 import os
 import re
 import shlex
 import socket
+import string
 import sys
 import traceback
 import chardet
 from webui import webui
 
 
-__version__ = "0.1.2"
+__version__ = "0.2.0-wip"
 VERSION = __version__.split(".")
 
 
@@ -366,6 +368,45 @@ console.log('webwin.js loaded.');
         """
         self._webui_win.destroy()
 
+
+class FileSystem:
+    def get_roots(self) -> list[str]:
+        """ 获取所有根目录
+
+        Returns:
+            在 win 平台，返回所有有效盘符列表（包括":\"）
+            在其他平台，返回 ['/']
+        """
+        if os.name == 'nt':
+            return [d+':\\' for d in string.ascii_uppercase if os.path.exists(d+':\\')]
+        # elif os.name == 'posix':
+        #     return ['/']
+        else:
+            return ['/']
+
+    def ls(self, dir: str, filter: str = '', type: str = '') -> list[dict]:
+        if os.path.exists(dir):
+            ret = []
+            with os.scandir(dir) as lst:
+                for e in lst:
+                    stat = e.stat()
+                    node = {'name': e.name,
+                            'type': 'file' if e.is_file() else 'dir' if e.is_dir() else 'link' if e.is_symlink() else '',
+                            'size':stat.st_size,
+                            'ctime': datetime.fromtimestamp(stat.st_ctime).strftime('%Y-%m-%d %H:%M:%S'),
+                            'mtime': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S'),
+                            'atime': datetime.fromtimestamp(stat.st_atime).strftime('%Y-%m-%d %H:%M:%S'),
+                            }
+                    if (not filter or fnmatch.fnmatch(e.name, filter)) and (not type or node['type'] == type.lower()):
+                        ret.append(node)
+            return ret
+        else:
+            raise FileNotFoundError(dir)
+
+    def cwd(self) -> str:
+        return os.getcwd()
+
+
 class WebWinApp:
     class Args(argparse.Namespace):
         def __init__(self):
@@ -612,7 +653,7 @@ class WebWinApp:
 
         调用 `self.mainwin.expose_object()` 和 `self.mainwin.expose_func()`
         """
-        pass
+        self.mainwin.bind_object(FileSystem(), 'fs')
 
     def show_msg_page(self, msg: str='', add_help_msg: bool=True):
         self.mainwin.show_html(f'''<html>

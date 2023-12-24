@@ -10,6 +10,11 @@
     name-2: <input type="text" id="name_2">
     <button onclick="hello()">Hello</button><br />
     Reply: <div id="reply" style="border:1px solid;padding:10px;"></div>
+    <hr />
+    dir: <input type="text" id="dir" />
+    filter: <input type="text" id="filter" />
+    <button onclick="ls()">ls</button>
+    <div id="ls_result" style="border:1px solid;padding:10px;"></div>
   </body>
   <script>
     async function swap() {
@@ -23,6 +28,20 @@
       await webwin.world.set_name_1(document.getElementById("name_1").value);
       await webwin.world.set_name_2(document.getElementById("name_2").value);
       document.getElementById("reply").innerHTML = await webwin.world.hello();
+    }
+    async function ls() {
+      let elm = document.getElementById("ls_result");
+      try {
+        let ret = await webwin.fs.ls(document.getElementById("dir").value, document.getElementById("filter").value);
+        let s = ""
+        ret.forEach(e => {
+          s += `${e.name} (type=${e.type}, size=${e.size}, mtime=${e.mtime})<br />`;
+        });
+        elm.innerHTML = s;
+      } catch (e) {
+        console.log(e);
+        elm.innerHTML = e.message;
+      }
     }
   </script>
 </html>

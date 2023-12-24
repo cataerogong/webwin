@@ -1,3 +1,7 @@
+## v0.2.0-wip
+
+* [+] add `FileSystem` class. `WebWinApp` exports an instance of it with name `fs` by default.
+
 ## v0.1.2
 
 * [+] show app info in help page
