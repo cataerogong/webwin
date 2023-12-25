@@ -25,11 +25,12 @@ import socket
 import string
 import sys
 import traceback
+from typing import Dict, List, Tuple
 import chardet
 from webui import webui
 
 
-__version__ = "0.2.0-wip"
+__version__ = "0.2.0-alpha"
 VERSION = __version__.split(".")
 
 
@@ -232,7 +233,7 @@ console.log('webwin.js loaded.');
         return webui.browser.__dict__.get(self._browser, webui.browser.any)
 
     @staticmethod
-    def valid_browser_types() -> list[str]:
+    def valid_browser_types() -> List[str]:
         """ “支持的浏览器类型”参数值列表 """
         return webui.browser.__annotations__.keys()
 
@@ -370,7 +371,7 @@ console.log('webwin.js loaded.');
 
 
 class FileSystem:
-    def get_roots(self) -> list[str]:
+    def get_roots(self) -> List[str]:
         """ 获取所有根目录
 
         Returns:
@@ -384,7 +385,7 @@ class FileSystem:
         else:
             return ['/']
 
-    def ls(self, dir: str, filter: str = '', type: str = '') -> list[dict]:
+    def ls(self, dir: str, filter: str = '', type: str = '') -> List[Dict]:
         if os.path.exists(dir):
             ret = []
             with os.scandir(dir) as lst:
@@ -425,7 +426,7 @@ class WebWinApp:
             return s
 
         @staticmethod
-        def size_type(s: str) -> tuple[int, int]:
+        def size_type(s: str) -> Tuple[int, int]:
             ret = [int(x) for x in s.split(',')]
             if len(ret) == 1:
                 ret.append(ret[0])

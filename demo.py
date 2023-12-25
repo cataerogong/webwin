@@ -1,6 +1,5 @@
 import argparse
-from time import sleep
-from webwin import WebWin, WebWinApp, webwin_exit
+from webwin import WebWinApp
 
 def swap(a, b):
     print('swap():', a, b)
@@ -9,6 +8,8 @@ def swap(a, b):
 class World:
     def __init__(self, myname):
         self.myname = myname
+        self.name_1 = ''
+        self.name_2 = ''
 
     def set_name_1(self, name):
         self.name_1 = name
@@ -58,23 +59,5 @@ class DemoApp(WebWinApp):
 #   在 apply_args() 函数中：self.args.webroot = self.BUNDLE_DIR
 app = DemoApp('WebWin Demo', webroot_bundled=True)
 app.run()
-# sleep(2)
-# print('close...')
-# app._mainwin.close()
-# app.wait()
-# print('closed')
-
-# sleep(2)
-# print('run again')
-# app.run()
-# sleep(2)
-# print('destroy...')
-# app._mainwin.destroy()
-# app.wait()
-# print('destroyed')
-
-# sleep(2)
-# print('run again (can not open any window)')
-# app.run()
 app.wait()
 print('Bye-bye')

@@ -1,16 +1,17 @@
 <html>
   <head><title>WebWin Demo</title><style>name {color: green;}</style></head>
   <body>
-    use python function:<br />
+    <h3>use python function</h3>
     A: <input type="text" id="inputA"> B: <input type="text" id="inputB">
     <button onclick="swap()">Swap</button>
     <hr />
-    use python object:<br />
-    name-1: <input type="text" id="name_1">
-    name-2: <input type="text" id="name_2">
-    <button onclick="hello()">Hello</button><br />
+    <h3>use python object</h3>
+    name-1: <input type="text" id="name_1"> <button onclick="set_name_1()">set</button><br />
+    name-2: <input type="text" id="name_2"> <button onclick="set_name_2()">set</button><br />
+    <button onclick="say_hello()">Say hello</button><br />
     Reply: <div id="reply" style="border:1px solid;padding:10px;"></div>
     <hr />
+    <h3>FileSystem</h3>
     dir: <input type="text" id="dir" />
     filter: <input type="text" id="filter" />
     <button onclick="ls()">ls</button>
@@ -24,9 +25,13 @@
       elmA.value = ret_from_py[0];
       elmB.value = ret_from_py[1];
     }
-    async function hello(){
-      await webwin.world.set_name_1(document.getElementById("name_1").value);
-      await webwin.world.set_name_2(document.getElementById("name_2").value);
+    async function set_name_1(name) {
+      await webwin.world.set_name_1(document.getElementById('name_1').value);
+    }
+    async function set_name_2(name) {
+      await webwin.world.set_name_2(document.getElementById('name_2').value);
+    }
+    async function say_hello(){
       document.getElementById("reply").innerHTML = await webwin.world.hello();
     }
     async function ls() {

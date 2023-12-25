@@ -1,5 +1,15 @@
 # WebWin - Web UI with Python-backend
 
+
+## WebWin 能干啥？
+
+* 用 HTML & javascript 设计 UI 交互，用 Python 实现业务逻辑
+* javascript 调用 Python 函数，Python 执行 javascript 代码
+* 可以把你的应用打包成一个小尺寸的独立程序，便于分发
+* NO Electron! 运行打包后的程序运行简单，一点即开，只需要有浏览器（无需用户提前打开）
+* 对于那种 Single-Page-Application (SPA) 的网页应用，再不用自建 web 服务来运行了，可以很方便地把它变成如单机程序般易于使用
+
+
 ## 缘起
 
 0. 经常有些小需求，没有现成应用可以完成，想自己写个程序，于是 ……
@@ -30,16 +40,7 @@
 
    webui 用起来还是有点糙，在外面再包一层，让它用起来更顺一点 ……
 
-   程序员么，总想着自己造轮子，造不了新轮子，也要再旧轮子上打几个补丁，所以就有了这个项目 ^_^
-
-
-## WebWin 能干啥？
-
-* 用 HTML & javascript 设计 UI 交互，用 Python 实现业务逻辑
-* javascript 调用 Python 函数，Python 执行 javascript 代码
-* 可以把你的应用打包成一个小尺寸的独立程序，便于分发
-* NO Electron! 运行打包后的程序运行简单，一点即开，只需要有浏览器（无需用户提前打开）
-* 对于那种 Single-Page-Application (SPA) 的网页应用，再不用自建 web 服务来运行了，可以很方便地把它变成如单机程序般易于使用
+   程序员么，总想着自己造轮子，造不了新轮子，也要在旧轮子上打几个补丁，所以就有了这个项目 ^_^
 
 
 ## 预警
@@ -51,13 +52,13 @@
 
 ## 安装
 
-目前只能把源码直接放到项目下调用，暂没有 pip install
+目前只能直接把源码直接放到项目下调用，暂没有 pip install
 
 源码: `webwin.py`
 
 依赖: （可能有变化，具体见 `requirements.in`）
 
-* python >= 3.8, <= 3.10
+* python >= 3.8
 
 * webui2==2.4.5  （至少2.4.5）
 * pyinstaller （版本应该关系不大）
@@ -79,10 +80,11 @@ win = WebWin()
 win.bind_func(hello)
 win.show_html('''<html>
 <body>
-<button onclick="f()">click me</button>
+name: <input type="text" id="name" />
+<button onclick="say_hello()">hello</button>
 <script>
-async function f() {
-  alert(await webwin.hello('world'));
+async function say_hello() {
+  alert(await webwin.hello(document.getElementById("name").value));
 }
 </script>
 </body>
