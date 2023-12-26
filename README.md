@@ -1,7 +1,7 @@
-# WebWin - Web UI with Python-backend
+# webwin - Web UI with Python-backend
 
 
-## WebWin 能干啥？
+## webwin 能干啥？
 
 * 用 HTML & javascript 设计 UI 交互，用 Python 实现业务逻辑
 * javascript 调用 Python 函数，Python 执行 javascript 代码
@@ -56,7 +56,7 @@
 
 源码: `webwin.py`
 
-依赖: （可能有变化，具体见 `requirements.in`）
+依赖: （可能有变化，具体见 `requirements.txt`）
 
 * python >= 3.8
 

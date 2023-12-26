@@ -14,9 +14,11 @@ License: MIT (see LICENSE for details)
 """
 
 import argparse
+from collections.abc import Iterable
 from datetime import datetime
 import fnmatch
 import inspect
+import io
 import json
 import os
 import re
@@ -25,13 +27,13 @@ import socket
 import string
 import sys
 import traceback
-from typing import Dict, List, Tuple
+from typing import Dict, Iterable, List, Tuple
 import chardet
 from webui import webui
 
 
-__version__ = "0.2.0-alpha"
-VERSION = __version__.split(".")
+__version__ = "0.2.0-alpha-1"
+VERSION = re.split(r'[\.\-_]', __version__)
 
 
 def detect_enc(filename, default_encoding='ascii'):
@@ -408,6 +410,73 @@ class FileSystem:
         return os.getcwd()
 
 
+class DualOutputIO(io.StringIO):
+	""" 双路输出IO
+
+	仅支持输出，用来替换stdout, stderr。
+
+	输出模式：
+		1、【单独】：输出到主IO，当主IO为None时，输出到备IO；
+		2、【同时】；
+		3、【丢弃】：两路IO均为None时，丢弃输出信息。
+	"""
+
+	def __init__(self, io_1: io.StringIO, io_2: io.StringIO, both: bool = False):
+		""" 双路输出IO
+
+		输出模式：
+			1、【单独】：输出到主IO，当主IO为None时，输出到备IO；
+			2、【同时】；
+			3、【丢弃】：两路IO均为None时，丢弃输出信息。
+
+		Args:
+			io_1: 主用输出IO
+			io_2: 备用输出IO
+			both: 是否同时输出
+		"""
+		super().__init__()
+		self._io_1 = io_1
+		self._io_2 = io_2
+		self.both = both
+
+	def _io_1_write(self, s: str):
+		return self._io_1.write(s) if self._io_1 else 0
+
+	def _io_2_write(self, s: str):
+		return self._io_2.write(s) if self._io_2 and (self.both or not self._io_1) else 0
+
+	def write(self, s: str):
+		r1 = self._io_1_write(s) 
+		r2 = self._io_2_write(s)
+		return r1 or r2
+
+	def _io_1_writelines(self, lines):
+		if self._io_1:
+			self._io_1.writelines(lines)
+
+	def _io_2_writelines(self, lines):
+		if self._io_2 and (self.both or not self._io_1):
+			self._io_2.writelines(lines)
+
+	def writelines(self, lines: Iterable[str]):
+		self._io_1_writelines(lines)
+		self._io_2_writelines(lines)
+
+
+class FileLog(io.StringIO):
+    def __init__(self, filename: str):
+        super().__init__()
+        self.filename = filename
+
+    def write(self, __s: str) -> int:
+        with open(self.filename, 'a') as f:
+            return f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ' + __s)
+
+    def writelines(self, __lines: Iterable[str]) -> None:
+        with open(self.filename, 'a') as f:
+            return f.writelines(__lines)
+
+
 class WebWinApp:
     class Args(argparse.Namespace):
         def __init__(self):
@@ -457,7 +526,7 @@ class WebWinApp:
         def exit(self, status=0, message=None):
             if message:
                 self._webwin_show_msg(message)
-            sys.exit(status)
+            sys.exit()
 
         def error(self, message):
             self.exit(2, f'<h1>ERROR</h1>{message}')
@@ -536,8 +605,8 @@ class WebWinApp:
         self.APP_VER = app_ver
         self.APP_DESC = app_desc
         self.webroot_bundled = webroot_bundled
-        self._log2console = True
-        self._log2file = True
+        sys.stdout = DualOutputIO(sys.stdout, None)
+        sys.stderr = DualOutputIO(sys.stderr, FileLog(self.LOG_FILE), True)
         self._enable_args_file = enable_args_file
         self._enable_cmdline_args = enable_cmdline_args
         self._mainwin = WebWin()
@@ -566,15 +635,16 @@ class WebWinApp:
         self.CUR_DIR = os.path.abspath(os.getcwd())
 
     def log(self, msg: str):
-        if self._log2console:
-            print(msg)
+        """ 记录信息（输出到sys.stdout） """
+        print(msg, file=sys.stdout)
 
-    def log_ex(self):
-        msg = traceback.format_exc()
-        self.log(msg)
-        if self._log2file:
-            with open(self.LOG_FILE, 'a') as f:
-                f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ' + msg + '\n')
+    def log_err(self, msg: str):
+        """ 记录错误信息（输出到sys.stderr） """
+        print(msg, file=sys.stderr)
+
+    def log_exc(self):
+        """ 记录 Exception Traceback 信息（输出到sys.stderr） """
+        print(traceback.format_exc(), file=sys.stderr)
 
     @property
     def logging_to_console(self) -> bool:
@@ -665,45 +735,55 @@ class WebWinApp:
 
     def run(self):
         """ 获取参数，打开窗口显示网页 """
-        self._prepare_argparser()
-        self.help_msg = self.argparser.format_help()
-        self._parse_args()
-        self.apply_args()
-        if self.args.port and not is_port_valid(self.args.port):
-            self.mainwin.port = 0
-            self.show_msg_page(f'<h1>端口被占用！</h1>【端口】{self.args.port}')
-        elif self.args.port and self.args.port < 1024:
-            self.mainwin.port = 0
-            self.show_msg_page(f'<h1>不能使用小于 1024 的特权端口！</h1>【端口】{self.args.port}')
-        elif not os.path.exists(self.args.mainpage):
-            self.show_msg_page(f'<h1>应用主页文件不存在！</h1>【网页根目录】{self.args.webroot}<br />【应用主页】{self.args.mainpage}')
-        else:
-            self.mainwin.webroot = self.args.webroot
-            self.mainwin.port = self.args.port
-            self.mainwin.browser = self.args.browser
-            self.mainwin.size = self.args.size
-            self.bind_all()
-            with open_any_enc(self.args.mainpage) as f:
-                html = f.read()
-            for js in self.args.del_js:
-                html = comment_js_file(html, js)
-            self.mainwin.show_html(html)
-            for js in [os.path.normpath(os.path.join(self.CUR_DIR, j)) for j in self.args.run_js]:
-                try:
-                    self.mainwin.run_js_file(js)
-                except:
-                    self.log_ex()
+        try:
+            self._prepare_argparser()
+            self.help_msg = self.argparser.format_help()
+            self._parse_args()
+            self.apply_args()
+            if self.args.port and not is_port_valid(self.args.port):
+                self.mainwin.port = 0
+                self.show_msg_page(f'<h1>端口被占用！</h1>【端口】{self.args.port}')
+            elif self.args.port and self.args.port < 1024:
+                self.mainwin.port = 0
+                self.show_msg_page(f'<h1>不能使用小于 1024 的特权端口！</h1>【端口】{self.args.port}')
+            elif not os.path.exists(self.args.mainpage):
+                self.show_msg_page(f'<h1>应用主页文件不存在！</h1>【网页根目录】{self.args.webroot}<br />【应用主页】{self.args.mainpage}')
+            else:
+                self.mainwin.webroot = self.args.webroot
+                self.mainwin.port = self.args.port
+                self.mainwin.browser = self.args.browser
+                self.mainwin.size = self.args.size
+                self.bind_all()
+                with open_any_enc(self.args.mainpage) as f:
+                    html = f.read()
+                for js in self.args.del_js:
+                    html = comment_js_file(html, js)
+                self.mainwin.show_html(html)
+                for js in [os.path.normpath(os.path.join(self.CUR_DIR, j)) for j in self.args.run_js]:
+                    try:
+                        self.mainwin.run_js_file(js)
+                    except:
+                        self.log_exc()
+        except Exception as e:
+            if not isinstance(e, SystemExit):
+                self.log_exc()
 
     def wait(self):
         """ 等待*所有*窗口关闭 """
-        webwin_wait()
+        try:
+            webwin_wait()
+        except:
+            self.log_exc()
 
     def exit(self):
         """ 关闭所有窗口，并释放 WebWin 资源
 
         调用后，WebWin 将不可使用
         """
-        webwin_exit()
+        try:
+            webwin_exit()
+        except:
+            self.log_exc()
 
 if __name__ == '__main__':
     app = WebWinApp()

@@ -1,10 +1,16 @@
 ## v0.2.0-alpha
 
-* [+] add `FileSystem` class. `WebWinApp` exports an instance of it with name `fs` by default.
+* [+] add `FileSystem` class to provide simple FS operation.
+
+  `WebWinApp` exports an instance of it with name `fs` by default.
 
 * [!] bugfix: use `list`, `tuple`, `dict` in type annotation is not supported in python 3.8
 
-* [+] add wheel release.
+* [+] add `wheel` release.
+
+* [*] redirect `stdout` & `stderr` in `WebWinApp`.
+
+  Now it can run with `pythonw`.
 
 ## v0.1.2
 
