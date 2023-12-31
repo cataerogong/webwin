@@ -21,6 +21,7 @@ import inspect
 import io
 import json
 import os
+import pathlib
 import re
 import shlex
 import socket
@@ -69,8 +70,8 @@ def is_port_valid(p: int) -> bool:
     finally:
         s.close()
 
-def insert_str(html: str, insert: str, where: str = '</html>', newline: bool = True) -> str:
-    """ 在网页中搜索最后一个“定位字符串”，并在之前插入字符串
+def insert_str(html: str, insert: str, where: str = '</html>', *, forward: bool = False, before: bool = True) -> str:
+    """ 在网页中搜索“定位字符串”，插入字符串
 
     搜索大小写无关；默认在网页末尾的 `</html>` 前插入。
 
@@ -79,12 +80,21 @@ def insert_str(html: str, insert: str, where: str = '</html>', newline: bool = T
     ...
     inserted string
     </html>
+
+    Args:
+        where (str): 定位字符串
+        forward (bool): True: 正向查找，False: 反向查找
+        before (bool): True: 插入在“定位字符串”之前，False: 之后
     ~~~
     """
-    p = html.lower().rfind(where.lower())
-    nl = '\n' if newline else ''
+    if forward:
+        p = html.lower().find(where.lower())
+    else:
+        p = html.lower().rfind(where.lower())
     if p >= 0:
-        html = html[:p] + insert + nl + html[p:]
+        if not before:
+            p = p + len(where)
+        html = html[:p] + insert + html[p:]
     return html
 
 def append_js(html: str, js_file: str = '', js_str: str = '') -> str:
@@ -107,9 +117,9 @@ def append_js(html: str, js_file: str = '', js_str: str = '') -> str:
         处理后的 html
     """
     if js_file:
-        html = insert_str(html, f'<script src="{js_file}"></script>')
+        html = insert_str(html, f'<script src="{js_file}"></script>\n')
     if js_str:
-        html = insert_str(html, f'<script>\n{js_str}\n</script>')
+        html = insert_str(html, f'<script>\n{js_str}\n</script>\n')
     return html
 
 def comment_html(html: str, regex_to_comment: str, regex_flags = re.IGNORECASE) -> str:
@@ -239,7 +249,7 @@ console.log('webwin.js loaded.');
         """ “支持的浏览器类型”参数值列表 """
         return webui.browser.__annotations__.keys()
 
-    def _bind_func(self, f, name):
+    def _bind_func(self, f, bindname):
         def wrapper(e: webui.event):
             args_j = e.window.get_str(e, 0)
             args = json.loads(args_j) if args_j else []
@@ -248,42 +258,53 @@ console.log('webwin.js loaded.');
                 return json.dumps({'status': 'succ', 'retval': retval}, ensure_ascii=False)
             except Exception as ex:
                 return json.dumps({'status': 'fail', 'msg': repr(ex)}, ensure_ascii=False)
-        self._webui_win.bind(name, wrapper)
+        self._webui_win.bind(bindname, wrapper)
 
-    def _webwin_js_expose(self, js_str: str):
-        self.webwin_js = insert_str(self.webwin_js, js_str, self.WEBEIN_JS_EXPOSE_END)
+    def _webwin_js_expose(self, js_str: str, end: str = '\n'):
+        self.webwin_js = insert_str(self.webwin_js, js_str + end, where=self.WEBEIN_JS_EXPOSE_END)
 
-    def bind_func(self, func, name: str = ''):
+    def _expose_func(self, f, bindname: str, jsname: str = ''):
+        """ 在 webwinjs 中添加 js 函数 """
+        docstring = '/*\n' + f.__doc__ + '\n */' if f.__doc__ else ''
+        self._webwin_js_expose(f'''{docstring}
+async {jsname or bindname}(...args) {{
+    return await webwin._call_("{bindname}", ...args);
+}},''')
+        print(f'webwin exposed func: {bindname}')
+
+    def bind_func(self, func, bindname: str = ''):
         """ 将 Python 函数提供给前端 js
 
         Args:
             func (callable): 函数
-            name (str): 前端使用的函数名，默认为 func 的函数名
+            bindname (str): 前端使用的函数名，默认为 func 的函数名
         """
         if not callable(func):
             raise TypeError(f'Not callable: {repr(func)}')
-        if not name:
-            name = func.__name__
-        self._bind_func(func, name)
-        self._webwin_js_expose(f'async {name}(...args) {{ return await webwin._call_("{name}", ...args); }},')
-        print(f'webwin exposed func: {name}')
+        if not bindname:
+            bindname = func.__name__
+        self._bind_func(func, bindname)
+        self._expose_func(func, bindname)
 
-    def bind_object(self, obj, name: str = ''):
+    def bind_object(self, obj, bindname: str = ''):
         """ 将 Python 对象的方法提供给前端 js
 
         除了 `_` 开头的对象方法，其他都会提供给前端。
-        
+
         Args:
             obj (callable): 对象
-            name (str): 前端使用的对象名，默认为 obj 的类名小写
+            bindname (str): 前端使用的对象名，默认为 obj 的类名小写
         """
-        if not name:
-            name = obj.__class__.__name__.lower()
-        self._webwin_js_expose(name + ': {')
+        if not bindname:
+            bindname = obj.__class__.__name__.lower()
+        self._webwin_js_expose(bindname + ': {')
         for m in inspect.getmembers(obj, predicate=lambda x: inspect.ismethod(x) and not x.__name__.startswith('_')):
-            self.bind_func(m[1])
+            funcbindname = f'{bindname}.{m[0]}'
+            funcjsname = m[0]
+            self._bind_func(m[1], funcbindname)
+            self._expose_func(m[1], bindname=funcbindname, jsname=funcjsname)
         self._webwin_js_expose('},')
-        print(f'webwin exposed object: {name}')
+        print(f'webwin exposed object: {bindname}')
 
     def inject_webwin_js(self, html: str) -> str:
         """ 在 html 末尾增加载入 webwin 的 js 代码 """
@@ -301,12 +322,14 @@ console.log('webwin.js loaded.');
             html (str): HTML 字符串
             append_webui_js (bool): 是否在 HTML 末尾插入 webui 功能 js 代码。
         """
+        html = insert_str(html, '<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />', '<head>', forward=True, before=False)
         if append_webui_js:
             html = inject_webui_js(html)
         if append_webwin_js:
             html = self.inject_webwin_js(html)
         self._prepare_webui()
         self._webui_win.show(html, self._webui_browser)
+        self.run_js('if ("on_webwin_loaded" in window && window.on_webwin_loaded) { window.on_webwin_loaded(); }')
 
     def show_file(self, html_file: str = 'index.html', append_webui_js: bool = True, append_webwin_js: bool = True):
         """ 打开浏览器并展示 html 文件
@@ -377,7 +400,7 @@ class FileSystem:
         """ 获取所有根目录
 
         Returns:
-            在 win 平台，返回所有有效盘符列表（包括":\"）
+            在 win 平台，返回所有有效盘符列表（包括":\\"）
             在其他平台，返回 ['/']
         """
         if os.name == 'nt':
@@ -387,27 +410,74 @@ class FileSystem:
         else:
             return ['/']
 
-    def ls(self, dir: str, filter: str = '', type: str = '') -> List[Dict]:
-        if os.path.exists(dir):
+    def ls(self, dir: str, pattern: str = '', type: str = '') -> List[Dict]:
+        """ 列出目录下文件和子目录
+        
+        Args:
+            dir (str): 根目录
+            pattern (str): 匹配模板，支持 '*' 和 '?'
+            type (str): 限定类型，'dir':目录，'file':文件，'symlink':符号链接
+
+        Returns:
+            字典对象列表，字典键值：name, fullpath, type, size, ctime, mtime, atime
+        """
+        if pathlib.Path(dir).is_dir():
             ret = []
             with os.scandir(dir) as lst:
                 for e in lst:
                     stat = e.stat()
                     node = {'name': e.name,
-                            'type': 'file' if e.is_file() else 'dir' if e.is_dir() else 'link' if e.is_symlink() else '',
+                            'fullpath': e.path,
+                            'type': 'file' if e.is_file() else 'dir' if e.is_dir() else 'symlink' if e.is_symlink() else '',
                             'size':stat.st_size,
                             'ctime': datetime.fromtimestamp(stat.st_ctime).strftime('%Y-%m-%d %H:%M:%S'),
                             'mtime': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S'),
                             'atime': datetime.fromtimestamp(stat.st_atime).strftime('%Y-%m-%d %H:%M:%S'),
                             }
-                    if (not filter or fnmatch.fnmatch(e.name, filter)) and (not type or node['type'] == type.lower()):
+                    if (not pattern or fnmatch.fnmatch(e.name, pattern)) and (not type or node['type'] == type.lower()):
                         ret.append(node)
             return ret
         else:
             raise FileNotFoundError(dir)
 
     def cwd(self) -> str:
-        return os.getcwd()
+        """ 获取当前目录 """
+        return os.path.abspath(os.getcwd())
+
+    def readfile(self, path: str) -> str:
+        """ 读文件
+        
+        Args:
+            path (str): 文件路径
+
+        Returns:
+            (str) 文件内容
+        """
+        if pathlib.Path(path).is_file():
+            with open_any_enc(path) as f:
+                return f.read()
+        raise FileNotFoundError(path)
+
+    def writefile(self, path: str, text: str, mode: str = 'w'):
+        """ 写文件
+
+        Args:
+            path (str): 文件路径
+            text (str): 写入内容
+            mode (str): 写入模式，'w':overwrite, 'a':append
+        """
+        with open(path, mode) as f:
+            return f.write(text)
+
+    def removefile(self, path: str):
+        """ 删除文件
+
+        Args:
+            path (str): 文件路径
+        """
+        if pathlib.Path(path).is_file():
+            os.remove(path)
+        raise FileNotFoundError(path)
 
 
 class DualOutputIO(io.StringIO):

@@ -16,6 +16,12 @@
     filter: <input type="text" id="filter" />
     <button onclick="ls()">ls</button>
     <div id="ls_result" style="border:1px solid;padding:10px;"></div>
+    <hr />
+    file: <input type="text" id="file" size="100" /><br />
+    content: <textarea id="content" cols="100" rows="10"></textarea><br />
+    <button onclick="readfile()">Read File</button>
+    <button onclick="writefile('w')">Write File(overwrite)</button>
+    <button onclick="writefile('a')">Write File(append)</button>
   </body>
   <script>
     async function swap() {
@@ -47,6 +53,27 @@
         console.log(e);
         elm.innerHTML = e.message;
       }
+    }
+    async function readfile() {
+      let elm = document.getElementById("content");
+      try {
+        elm.value = await webwin.fs.readfile(document.getElementById("file").value);
+      } catch (e) {
+        console.log(e);
+        elm.value = e.message;
+      }
+    }
+    async function writefile(mode) {
+      let elm = document.getElementById("content");
+      try {
+        await webwin.fs.writefile(document.getElementById("file").value, elm.value, mode);
+      } catch (e) {
+        console.log(e);
+        elm.value = e.message;
+      }
+    }
+    window.on_webwin_loaded = () => {
+      alert('webwin loaded.');
     }
   </script>
 </html>

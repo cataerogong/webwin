@@ -12,6 +12,10 @@
 
   Now it can run with `pythonw`.
 
+* [+] add `on_webwin_loaded` in webwin js.
+
+  Frontend can assign func (`window.on_webwin_loaded=func`), webwin will call func after loaded.
+
 ## v0.1.2
 
 * [+] show app info in help page
