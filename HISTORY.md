@@ -1,8 +1,8 @@
-## v0.2.0-alpha
+## v0.2.0
 
 * [+] add `FileSystem` class to provide simple FS operation.
 
-  `WebWinApp` exports an instance of it with name `fs` by default.
+  `WebWinApp` exports an instance of it with name `fs`.
 
 * [!] bugfix: use `list`, `tuple`, `dict` in type annotation is not supported in python 3.8
 
@@ -14,7 +14,7 @@
 
 * [+] add `on_webwin_loaded` in webwin js.
 
-  Frontend can assign func (`window.on_webwin_loaded=func`), webwin will call func after loaded.
+  Frontend js can assign func (`window.on_webwin_loaded=func`), webwin will call the `func` after loaded.
 
 ## v0.1.2
 

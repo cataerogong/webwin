@@ -33,7 +33,7 @@ import chardet
 from webui import webui
 
 
-__version__ = "0.2.0-alpha-1"
+__version__ = "0.2.0"
 VERSION = re.split(r'[\.\-_]', __version__)
 
 
@@ -547,33 +547,40 @@ class FileLog(io.StringIO):
             return f.writelines(__lines)
 
 
+class WebWinAppArgs(argparse.Namespace):
+    def __init__(self,
+                    webroot='',
+                    mainpage='index.html',
+                    port=0,
+                    browser='any',
+                    size=(0, 0),
+                    del_js=[],
+                    run_js=[]):
+        self.webroot = webroot
+        self.mainpage = mainpage
+        self.port = port
+        self.browser = browser
+        self.size = size
+        self.del_js = del_js
+        self.run_js = run_js
+
+    @staticmethod
+    def browser_type(s: str) -> str:
+        if s not in WebWin.valid_browser_types():
+            raise argparse.ArgumentTypeError(f'invalid "browser" value: "{s}"')
+        return s
+
+    @staticmethod
+    def size_type(s: str) -> Tuple[int, int]:
+        ret = [int(x) for x in s.split(',')]
+        if len(ret) == 1:
+            ret.append(ret[0])
+        if len(ret) != 2:
+            raise argparse.ArgumentTypeError(f'invalid "size" value: "{s}"')
+        return tuple(ret)
+
+
 class WebWinApp:
-    class Args(argparse.Namespace):
-        def __init__(self):
-            self.webroot = ''
-            self.mainpage = 'index.html'
-            self.port = 0
-            self.browser = 'any'
-            self.size = (0, 0)
-            self.del_js = []
-            self.run_js = []
-
-        @staticmethod
-        def browser_type(s: str) -> str:
-            if s not in WebWin.valid_browser_types():
-                raise argparse.ArgumentTypeError(f'invalid "browser" value: "{s}"')
-            return s
-
-        @staticmethod
-        def size_type(s: str) -> Tuple[int, int]:
-            ret = [int(x) for x in s.split(',')]
-            if len(ret) == 1:
-                ret.append(ret[0])
-            if len(ret) != 2:
-                raise argparse.ArgumentTypeError(f'invalid "size" value: "{s}"')
-            return tuple(ret)
-
-
     class ArgParser(argparse.ArgumentParser):
         def __init__(self, *args, **kwargs):
             self._wwa_args = dict()
@@ -655,7 +662,7 @@ class WebWinApp:
             """
             return self._wwa_args.keys()
 
-        def _wwa_build(self):
+        def build_parser(self):
             """ 生成实际的参数解析器（只能调用一次） """
             if not self._wwa_built:
                 for n, v in self._wwa_args.items():
@@ -667,6 +674,7 @@ class WebWinApp:
                  app_name: str = '',
                  app_ver:str = '1.0.0',
                  app_desc: str = '',
+                 args: WebWinAppArgs = WebWinAppArgs(),
                  webroot_bundled: bool = False,
                  enable_args_file: bool = True,
                  enable_cmdline_args: bool = True):
@@ -674,13 +682,14 @@ class WebWinApp:
         self.APP_NAME = app_name or self.PROG_NAME
         self.APP_VER = app_ver
         self.APP_DESC = app_desc
+        self.help_msg = app_desc
         self.webroot_bundled = webroot_bundled
         sys.stdout = DualOutputIO(sys.stdout, None)
         sys.stderr = DualOutputIO(sys.stderr, FileLog(self.LOG_FILE), True)
         self._enable_args_file = enable_args_file
         self._enable_cmdline_args = enable_cmdline_args
         self._mainwin = WebWin()
-        self.args = WebWinApp.Args()
+        self.args = args
         self.argparser = WebWinApp.ArgParser(allow_abbrev=False)
         self.argparser._wwa_app_info = (self.APP_NAME, self.APP_VER, self.APP_DESC)
 
@@ -762,19 +771,19 @@ class WebWinApp:
         self.argparser.add_argument('--webroot', default='', help='网页根目录（相对或绝对路径）[默认: 当前目录]')
         self.argparser.add_argument('--mainpage', metavar='HTML_FILE', default='index.html', help='应用主页 [默认: index.html]')
         self.argparser.add_argument('--port', type=int, default=0, help='端口 [默认: 随机]')
-        self.argparser.add_argument('--browser', type=WebWinApp.Args.browser_type, default='any', help=f'使用的浏览器（必须是本机已安装的）[默认: 系统缺省浏览器][可选项: {", ".join(self.mainwin.valid_browser_types())}]')
+        self.argparser.add_argument('--browser', type=WebWinAppArgs.browser_type, default='any', help=f'使用的浏览器（必须是本机已安装的）[默认: 系统缺省浏览器][可选项: {", ".join(self.mainwin.valid_browser_types())}]')
         # webui.window.set_size() 不是对所有浏览器生效，edge:ok, firefox:NO (webui2==2.4.5)
-        # self._argparser.add_argument('--size', metavar='WIDTH,HEIGHT', type=WebWinApp.Args.size_type, default=(0, 0), help='窗口大小 [默认: 上次运行时大小]')
+        # self._argparser.add_argument('--size', metavar='WIDTH,HEIGHT', type=WebWinAppArgs.size_type, default=(0, 0), help='窗口大小 [默认: 上次运行时大小]')
         self.argparser.add_argument('--del-js', metavar='DEL.JS', nargs='*', default=[], help='禁止主页加载 js 脚本文件')
         self.argparser.add_argument('--run-js', metavar='PATH/RUN.JS', nargs='*', default=[],  help='加载后执行 js 脚本文件（相对或绝对路径）')
         self.argparser.epilog = '【*注意*】如果网页会用到浏览器存储（如cookie,LocalStorage,indexdb），则必须指定端口(--port)'
         self.adjust_argparser()
-        self.argparser._wwa_build()
+        self.argparser.build_parser()
 
     def apply_args(self):
         """ （可重载）应用参数
 
-        通过 `self.args` (WebWinApp.Args) 访问保存解析后参数值，可以修改参数值
+        通过 `self.args` (WebWinAppArgs) 访问保存解析后参数值，可以修改参数值
 
         ```
         class SubApp(WebWinApp):
@@ -806,10 +815,11 @@ class WebWinApp:
     def run(self):
         """ 获取参数，打开窗口显示网页 """
         try:
-            self._prepare_argparser()
-            self.help_msg = self.argparser.format_help()
-            self._parse_args()
-            self.apply_args()
+            if (self._enable_args_file or self._enable_cmdline_args):
+                self._prepare_argparser()
+                self.help_msg = self.argparser.format_help()
+                self._parse_args()
+                self.apply_args()
             if self.args.port and not is_port_valid(self.args.port):
                 self.mainwin.port = 0
                 self.show_msg_page(f'<h1>端口被占用！</h1>【端口】{self.args.port}')
