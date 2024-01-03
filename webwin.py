@@ -33,7 +33,7 @@ import chardet
 from webui import webui
 
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 VERSION = re.split(r'[\.\-_]', __version__)
 
 
@@ -444,29 +444,35 @@ class FileSystem:
         """ 获取当前目录 """
         return os.path.abspath(os.getcwd())
 
-    def readfile(self, path: str) -> str:
+    def readfile(self, path: str, encoding: str = "") -> str:
         """ 读文件
         
         Args:
             path (str): 文件路径
+            encoding (str): 文件编码，为空时自动检测
 
         Returns:
             (str) 文件内容
         """
         if pathlib.Path(path).is_file():
-            with open_any_enc(path) as f:
-                return f.read()
+            if encoding:
+                with open(path, encoding=encoding) as f:
+                    return f.read()
+            else:
+                with open_any_enc(path) as f:
+                    return f.read()
         raise FileNotFoundError(path)
 
-    def writefile(self, path: str, text: str, mode: str = 'w'):
+    def writefile(self, path: str, text: str, mode: str = 'w', encoding: str = "utf-8"):
         """ 写文件
 
         Args:
             path (str): 文件路径
             text (str): 写入内容
             mode (str): 写入模式，'w':overwrite, 'a':append
+            encoding (str): 文件编码，默认："utf-8"
         """
-        with open(path, mode) as f:
+        with open(path, mode, encoding=encoding) as f:
             return f.write(text)
 
     def removefile(self, path: str):

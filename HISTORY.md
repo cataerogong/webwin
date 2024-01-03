@@ -1,3 +1,9 @@
+## v0.2.1
+
+* [+] add param `encoding` to `FileSystem.readfile()` and `writefile()`.
+
+  It seems encoding-autodetect is not so reliable.
+
 ## v0.2.0
 
 * [+] add `FileSystem` class to provide simple FS operation.
